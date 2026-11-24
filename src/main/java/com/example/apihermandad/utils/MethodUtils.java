@@ -1,0 +1,76 @@
+package com.example.apihermandad.utils;
+
+import com.example.apihermandad.domain.entity.Tramo;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.util.Base64;
+import java.util.List;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+public class MethodUtils {
+
+    // Para prevenir que alguien instancie la clase
+    private MethodUtils() {}
+
+
+    // Comprimir bytes de imagen -> String base64 comprimido (para BD)
+    public static String comprimirABase64(byte[] bytesImagen) throws IOException {
+        // 1. Comprimir bytes con GZIP
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+            gzip.write(bytesImagen);
+        }
+
+        // 2. Codificar a base64 (java.util.Base64 nativo, rápido en Java 17)
+        byte[] comprimido = baos.toByteArray();
+        return Base64.getEncoder().encodeToString(comprimido);
+    }
+
+    // Descomprimir base64 -> bytes originales (para devolver imagen)
+    public static byte[] descomprimirDeBase64(String base64Comprimido) throws IOException {
+        // 1. Decodificar base64
+        byte[] comprimido = Base64.getDecoder().decode(base64Comprimido);
+
+        // 2. Descomprimir GZIP
+        ByteArrayInputStream bais = new ByteArrayInputStream(comprimido);
+        try (GZIPInputStream gzip = new GZIPInputStream(bais);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = gzip.read(buffer)) != -1) {
+                baos.write(buffer, 0, len);
+            }
+            return baos.toByteArray();
+        }
+    }
+
+    public static void validateNoOvverlap(LocalDate goOut, LocalDate enter, List<Tramo> existingTramos){
+        for (Tramo tr : existingTramos){
+            LocalDate existEnter = tr.getEnter();
+
+            if(!goOut.isAfter(existEnter.plusDays(1)) &&
+                    !enter.isBefore(existEnter.minusDays(1))){
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        HttpMessage.TR_SOLAP
+                );
+            }
+        }
+    }
+
+    public static void validateDates(LocalDate goOut, LocalDate enter) {
+        if (enter.isBefore(goOut)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    HttpMessage.ERROR_DAYS
+            );
+        }
+    }
+
+}

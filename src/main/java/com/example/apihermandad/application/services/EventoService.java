@@ -1,0 +1,117 @@
+package com.example.apihermandad.application.services;
+
+import com.example.apihermandad.application.dto.EventoCreateUpdateDto;
+import com.example.apihermandad.application.dto.EventoDto;
+import com.example.apihermandad.application.mapper.EventoMapper;
+import com.example.apihermandad.domain.entity.Evento;
+import com.example.apihermandad.domain.entity.Grupo;
+import com.example.apihermandad.domain.repository.EventoRepository;
+import com.example.apihermandad.domain.repository.GrupoRepository;
+import com.example.apihermandad.utils.HttpMessage;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class EventoService {
+
+    private final EventoRepository eventoRepository;
+    private final EventoMapper eventoMapper;
+    private final GrupoRepository grupoRepository;
+
+    public EventoService(
+            EventoRepository eventoRepository,
+            EventoMapper eventoMapper,
+            GrupoRepository grupoRepository
+    ) {
+        this.eventoRepository = eventoRepository;
+        this.eventoMapper = eventoMapper;
+        this.grupoRepository = grupoRepository;
+    }
+
+    public List<EventoDto> getAllEventos() {
+        return eventoRepository.findAll()
+                .stream()
+                .map(eventoMapper::toDto)
+                .toList();
+    }
+
+    public EventoDto create(EventoCreateUpdateDto dto) {
+
+        Evento.EventoBuilder builder = Evento.builder()
+                .title(dto.title())
+                .description(dto.description())
+                .fecha(dto.fecha());
+
+        // 👉 SOLO si viene grupoId
+        if (dto.grupoId() != null) {
+            Grupo grupo = grupoRepository.findById(dto.grupoId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            HttpMessage.NOT_FOUND_GROUP
+                    ));
+            builder.grupo(grupo);
+        }
+
+        Evento evento = builder.build();
+        return eventoMapper.toDto(eventoRepository.save(evento));
+    }
+
+    public EventoDto update(Integer id, EventoCreateUpdateDto dto) {
+
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        HttpMessage.NOT_FOUND_NOTICE
+                ));
+
+        evento.setTitle(dto.title());
+        evento.setDescription(dto.description());
+        evento.setFecha(dto.fecha());
+
+        // 👉 grupo opcional
+        if (dto.grupoId() == null) {
+            evento.setGrupo(null); // permitir quitar grupo
+        } else {
+            Grupo grupo = grupoRepository.findById(dto.grupoId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            HttpMessage.NOT_FOUND_GROUP
+                    ));
+            evento.setGrupo(grupo);
+        }
+
+        return eventoMapper.toDto(eventoRepository.save(evento));
+    }
+
+    public void delete(Integer id) {
+        if (!eventoRepository.existsById(id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    HttpMessage.NOT_FOUND_NOTICE
+            );
+        }
+        eventoRepository.deleteById(id);
+    }
+
+    public List<EventoDto> getEventosByMonth(int year, int month) {
+
+        if (month < 1 || month > 12) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "El mes debe estar entre 1 y 12"
+            );
+        }
+
+        LocalDate start = LocalDate.of(year, month, 1);
+        LocalDate end = start.withDayOfMonth(start.lengthOfMonth());
+
+        return eventoRepository.findByFechaBetween(start, end)
+                .stream()
+                .map(eventoMapper::toDto)
+                .toList();
+    }
+}

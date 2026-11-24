@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: API-Hermandad
+
+  # Lee los secretos del archivo .env (si existe) o de variables de entorno
+  config:
+    import: optional:file:.env[.properties]
+
+  datasource:
+    url: jdbc:mariadb://localhost:3306/hermandad
+    username: hermandad
+    password: hermandad
+    driver-class-name: org.mariadb.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+      
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 86400000
+
+server:
+  port: 8080

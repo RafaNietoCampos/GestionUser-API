@@ -1,0 +1,38 @@
+services:
+  mariadb:
+    image: mariadb:lts
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: hermandad
+      MARIADB_USER: hermandad
+      MARIADB_PASSWORD: hermandad
+      MYSQL_STRICT_TRANS_TABLES: false
+      MYSQL_INNODB_STRICT_MODE: false
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./docker/init/01_schema.sql:/docker-entrypoint-initdb.d/00_bbdd.sql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      dockerfile: ./Dockerfile
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # Docker Compose toma estos valores del archivo .env
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "8080:8080"
+
+volumes:
+  mariadb_data:
